@@ -208,14 +208,28 @@ import { computeCSSSelector, computeXPath } from '@lightfeed/scrapedown';
 
 ## How selectors are generated
 
-**CSS selectors** use the shortest stable path:
+Selectors are ranked by **stability** — how likely they are to survive across page loads, different content, and site redesigns. Dynamic IDs, CSS-in-JS hashes, and framework-generated attributes are automatically filtered out.
 
-1. `#id` if the element has one
-2. `tag[data-testid="…"]` for test IDs
-3. `tag.class1.class2` with ancestor chain (max 3 classes, max 5 levels)
-4. `:nth-of-type(n)` when same-tag siblings exist
+**CSS selector priority** (most → least stable):
 
-**XPath** builds a positional path from `<body>`, short-circuiting at any ancestor with an `id`.
+| Priority | Strategy | Example | Why |
+|---|---|---|---|
+| 1 | `data-testid` | `h1[data-testid="title"]` | Explicitly placed for testing, rarely changes |
+| 2 | Unique stable classes | `span.titleline > a` | Structural, works across pages |
+| 3 | Stable ID | `#main-content` | Only if human-written and reusable |
+| 4 | `tag:nth-of-type(n)` | `li:nth-of-type(3)` | Positional fallback |
+
+**Filtered out automatically:**
+
+| Pattern | Example | Why it's fragile |
+|---|---|---|
+| Long digit sequences | `id="item_123456"` | Per-item, changes every page |
+| UUIDs | `id="a1b2c3d4-e5f6-..."` | Session/instance-specific |
+| Framework prefixes | `id="__next_abc"`, `id=":r0:"` | React/Next.js internals |
+| CSS-in-JS classes | `class="css-1abc2de"` | Build-generated, changes on deploy |
+| CSS modules hashes | `class="Header_a3f2b1"` | Hash changes with content |
+
+**XPath** builds a positional path from `<body>`, short-circuiting at any ancestor with a stable `id`.
 
 ## Contributing
 
