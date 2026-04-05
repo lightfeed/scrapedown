@@ -60,6 +60,37 @@ describe('CSS selectors', () => {
     expect(md).toMatch(/p:nth-of-type\(2\)/);
     expect(md).toMatch(/p:nth-of-type\(3\)/);
   });
+
+  it('skips nth-of-type when classes uniquely identify among siblings', () => {
+    const md = css(`
+      <div>
+        <p class="title">A</p>
+        <p class="body">B</p>
+      </div>
+    `);
+    // Each class is unique → no nth-of-type needed
+    expect(md).toContain('p.title');
+    expect(md).toContain('p.body');
+    expect(md).not.toContain('nth-of-type');
+  });
+
+  it('adds nth-of-type when classes are shared among siblings', () => {
+    const md = css(`
+      <ul>
+        <li class="item"><p>A</p></li>
+        <li class="item"><p>B</p></li>
+      </ul>
+    `);
+    expect(md).toMatch(/li\.item:nth-of-type\(1\)/);
+    expect(md).toMatch(/li\.item:nth-of-type\(2\)/);
+  });
+
+  it('omits nth-of-type for sole element of its tag', () => {
+    const md = css('<div><h1>Only heading</h1><p>Only para</p></div>');
+    expect(md).not.toContain('nth-of-type');
+    expect(md).toContain('h1');
+    expect(md).toContain('> p');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -81,6 +112,12 @@ describe('XPath selectors', () => {
     const md = xpath('<div><p>A</p><p>B</p></div>');
     expect(md).toMatch(/\/p\[1\]/);
     expect(md).toMatch(/\/p\[2\]/);
+  });
+
+  it('omits index when sole element of its tag', () => {
+    const md = xpath('<div><h2>Only</h2><p>Text</p></div>');
+    expect(md).toContain('//div/h2');
+    expect(md).not.toMatch(/h2\[\d\]/);
   });
 
   it('builds multi-level paths', () => {

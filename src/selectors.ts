@@ -1,6 +1,11 @@
 import type { SelectorResult, SelectorType } from './types.js';
 
 const MAX_CSS_DEPTH = 5;
+const MAX_CSS_CLASSES = 3;
+
+// ---------------------------------------------------------------------------
+// DOM helpers – defensive against varying DOM implementations (domino, jsdom…)
+// ---------------------------------------------------------------------------
 
 function isElement(node: unknown): boolean {
   return !!node && (node as any).nodeType === 1;
@@ -39,60 +44,151 @@ function getClasses(node: any): string[] {
   return getAttribute(node, 'class').trim().split(/\s+/).filter(Boolean);
 }
 
-function getSameTagSiblingIndex(node: any): { count: number; index: number } {
-  const parent = getParent(node);
-  if (!parent || !isElement(parent)) return { count: 1, index: 1 };
-
-  const tag = getTagName(node);
-  const siblings = getElementChildren(parent).filter(
-    (s: any) => getTagName(s) === tag,
+function isRootTag(tag: string): boolean {
+  return (
+    tag === 'body' ||
+    tag === 'html' ||
+    tag === '#document' ||
+    tag.startsWith('x-turndown')
   );
-  return { count: siblings.length, index: siblings.indexOf(node) + 1 };
 }
+
+function isTurndownId(id: string): boolean {
+  return id.startsWith('turndown');
+}
+
+// ---------------------------------------------------------------------------
+// Position counting – walks siblings rather than building arrays
+// ---------------------------------------------------------------------------
+
+/**
+ * Counts the 1-based position of `node` among same-tag siblings and whether
+ * any same-tag siblings exist at all.  Walking previousSibling / nextSibling
+ * is more robust across DOM implementations than Array.indexOf.
+ */
+function countSameTagPosition(node: any): {
+  hasSiblings: boolean;
+  index: number;
+} {
+  const tag = getTagName(node);
+  let index = 1;
+  let hasSiblings = false;
+
+  let sibling = node.previousSibling;
+  while (sibling) {
+    if (isElement(sibling) && getTagName(sibling) === tag) {
+      index++;
+      hasSiblings = true;
+    }
+    sibling = sibling.previousSibling;
+  }
+
+  if (!hasSiblings) {
+    sibling = node.nextSibling;
+    while (sibling) {
+      if (isElement(sibling) && getTagName(sibling) === tag) {
+        hasSiblings = true;
+        break;
+      }
+      sibling = sibling.nextSibling;
+    }
+  }
+
+  return { hasSiblings, index };
+}
+
+// ---------------------------------------------------------------------------
+// CSS helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when `candidate` matches the same tag and (at least) all the
+ * given classes.
+ */
+function matchesTagAndClasses(
+  candidate: any,
+  tag: string,
+  classes: string[],
+): boolean {
+  if (getTagName(candidate) !== tag) return false;
+  const candidateClasses = getClasses(candidate);
+  return classes.every((c) => candidateClasses.includes(c));
+}
+
+/**
+ * Generates the shortest unambiguous CSS segment for a single element
+ * relative to its parent.
+ *
+ *  Priority: #id → [data-testid] → tag.classes (if unique) → tag:nth-of-type
+ */
+function getUniqueSegment(node: any): string {
+  const tag = getTagName(node);
+
+  // 1. ID – globally unique
+  const id = getAttribute(node, 'id');
+  if (id && !isTurndownId(id)) {
+    return `#${cssEscape(id)}`;
+  }
+
+  // 2. data-testid – stable test hook
+  const testId = getAttribute(node, 'data-testid');
+  if (testId) {
+    return `${tag}[data-testid="${testId}"]`;
+  }
+
+  // 3. Try class combination – check if it uniquely identifies among siblings
+  const cls = getClasses(node).slice(0, MAX_CSS_CLASSES);
+  if (cls.length > 0) {
+    const classSelector = `${tag}.${cls.map(cssEscape).join('.')}`;
+    const parent = getParent(node);
+    if (parent && isElement(parent)) {
+      const siblings = getElementChildren(parent);
+      const matches = siblings.filter((s: any) =>
+        matchesTagAndClasses(s, tag, cls),
+      );
+      if (matches.length === 1) {
+        return classSelector;
+      }
+    }
+    // Classes exist but are not unique – fall through and add nth-of-type
+  }
+
+  // 4. Fallback – tag with :nth-of-type (only when same-tag siblings exist)
+  const { hasSiblings, index } = countSameTagPosition(node);
+  const classPart =
+    cls.length > 0 ? `.${cls.map(cssEscape).join('.')}` : '';
+
+  if (hasSiblings) {
+    return `${tag}${classPart}:nth-of-type(${index})`;
+  }
+
+  return cls.length > 0 ? `${tag}${classPart}` : tag;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 export function computeCSSSelector(el: any): string {
   if (!isElement(el)) return '';
-
-  const id = getAttribute(el, 'id');
-  if (id && !id.startsWith('turndown')) return `#${cssEscape(id)}`;
-
-  const dataTestId = getAttribute(el, 'data-testid');
-  if (dataTestId) return `${getTagName(el)}[data-testid="${dataTestId}"]`;
 
   const parts: string[] = [];
   let current: any = el;
 
   while (current && isElement(current)) {
     const tag = getTagName(current);
-    if (
-      tag === 'body' ||
-      tag === 'html' ||
-      tag === '#document' ||
-      tag.startsWith('x-turndown')
-    )
-      break;
+    if (isRootTag(tag)) break;
 
-    const currentId = getAttribute(current, 'id');
-    if (currentId && !currentId.startsWith('turndown')) {
-      parts.unshift(`#${cssEscape(currentId)}`);
-      break;
-    }
+    const segment = getUniqueSegment(current);
+    parts.unshift(segment);
 
-    let part = tag;
-    const cls = getClasses(current);
-    if (cls.length > 0) {
-      part += '.' + cls.slice(0, 3).map(cssEscape).join('.');
-    }
-
-    const { count, index } = getSameTagSiblingIndex(current);
-    if (count > 1 && index > 0) {
-      part += `:nth-of-type(${index})`;
-    }
-
-    parts.unshift(part);
+    // An id-based segment anchors the path – no need to go higher
+    if (segment.startsWith('#')) break;
+    // data-testid is similarly stable
+    if (segment.includes('[data-testid=')) break;
 
     if (parts.length >= MAX_CSS_DEPTH) break;
-    if (cls.length > 0 && parts.length >= 2) break;
+    if (getClasses(current).length > 0 && parts.length >= 2) break;
 
     current = getParent(current);
   }
@@ -108,23 +204,17 @@ export function computeXPath(el: any): string {
 
   while (current && isElement(current)) {
     const tag = getTagName(current);
-    if (
-      tag === 'body' ||
-      tag === 'html' ||
-      tag === '#document' ||
-      tag.startsWith('x-turndown')
-    )
-      break;
+    if (isRootTag(tag)) break;
 
     const id = getAttribute(current, 'id');
-    if (id && !id.startsWith('turndown')) {
+    if (id && !isTurndownId(id)) {
       parts.unshift(`${tag}[@id='${id}']`);
       return '//' + parts.join('/');
     }
 
     let step = tag;
-    const { count, index } = getSameTagSiblingIndex(current);
-    if (count > 1 && index > 0) {
+    const { hasSiblings, index } = countSameTagPosition(current);
+    if (hasSiblings) {
       step += `[${index}]`;
     }
 
