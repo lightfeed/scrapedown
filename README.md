@@ -116,7 +116,7 @@ Options
 ### Real-world example: Hacker News
 
 ```bash
-curl -s https://news.ycombinator.com | npx @lightfeed/scrapedown -s css
+curl -s https://news.ycombinator.com | npx @lightfeed/scrapedown
 ```
 
 Output (trimmed):
@@ -124,28 +124,28 @@ Output (trimmed):
 ```
 1.
 
-[Introduction to Computer Music (2009) [pdf]](https://composerprogrammer.com/introductiontocomputermusic.pdf)
-<!-- css="span.titleline > a" -->
-([composerprogrammer.com](from?site=composerprogrammer.com)<!-- css="span.sitebit.comhead > a" -->)
+[Gemma 4 on iPhone](https://apps.apple.com/nl/app/google-ai-edge-gallery/id6749645337)
+<!-- css="span.titleline > a" xpath="//tr[@id='bigbox']/td/table/tbody/tr[1]/td[3]/span/a" -->
+([apps.apple.com](from?site=apps.apple.com)<!-- css="span.sitebit.comhead > a" -->)
 
-107 points by [luu](user?id=luu)<!-- css="span.subline > a.hnuser" -->
-[4 hours ago](item?id=47645432)<!-- css="span.age > a" -->
-| [26 comments](item?id=47645432)<!-- css="span.subline > a:nth-of-type(3)" -->
+329 points by [janandonly](user?id=janandonly)<!-- css="span.subline > a.hnuser" -->
+[4 hours ago](item?id=47652561)<!-- css="span.age > a" -->
+| [hide](hide?id=47652561&goto=news)<!-- css="span.subline > a:nth-of-type(2)" -->
+| [84 comments](item?id=47652561)<!-- css="span.subline > a:nth-of-type(3)" -->
 
 2.
 
-[Show HN: A game where you build a GPU](https://jaso1024.com/mvidia/)
-<!-- css="span.titleline > a" -->
+[In Japan, the robot isn't coming for your job; it's filling the one nobody wants](https://techcrunch.com/...)
+<!-- css="span.titleline > a" xpath="//tr[@id='bigbox']/td/table/tbody/tr[4]/td[3]/span/a" -->
 ...
 ```
 
 An LLM reading this can immediately produce a working scraper:
 
 ```javascript
-// Selectors learned from scrapedown output
 const stories = document.querySelectorAll('span.titleline > a');
-const scores = document.querySelectorAll('span.subline > span.score');
-const commentLinks = document.querySelectorAll('span.subline > a:last-of-type');
+const users = document.querySelectorAll('span.subline > a.hnuser');
+const commentLinks = document.querySelectorAll('span.subline > a:nth-of-type(3)');
 ```
 
 ## API
