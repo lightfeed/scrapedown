@@ -53,19 +53,50 @@ function isRootTag(tag: string): boolean {
   );
 }
 
-function isTurndownId(id: string): boolean {
-  return id.startsWith('turndown');
+// ---------------------------------------------------------------------------
+// Stability heuristics
+// ---------------------------------------------------------------------------
+
+/**
+ * Detects IDs and class names that are likely generated/dynamic and therefore
+ * fragile for scraping (CSS modules hashes, framework-generated IDs, etc.).
+ */
+function looksGenerated(value: string): boolean {
+  // Turndown internals
+  if (value.startsWith('turndown')) return true;
+
+  // 4+ consecutive digits → likely dynamic (item_12345, product-9837)
+  if (/\d{4,}/.test(value)) return true;
+
+  // UUID-like patterns
+  if (/[0-9a-f]{8}-[0-9a-f]{4}/i.test(value)) return true;
+
+  // Framework-generated prefixes
+  if (/^(__|:r\d|:R|rc-|ng-|_\$|ember\d|ext-)/.test(value)) return true;
+
+  // CSS-in-JS patterns (styled-components, emotion, etc.)
+  if (/^(sc-|css-|emotion-|jss-|makeStyles-|styled-)/.test(value)) return true;
+
+  // Hex hash suffix preceded by separator (CSS modules, build tooling)
+  // e.g. "Header_a3f2b1", "styles-abc123" but NOT "product-title"
+  if (/[-_](?=[a-f0-9]*\d)[a-f0-9]{5,}$/i.test(value)) return true;
+
+  return false;
+}
+
+/**
+ * Returns only stable (non-generated) classes, capped at MAX_CSS_CLASSES.
+ */
+function getStableClasses(node: any): string[] {
+  return getClasses(node)
+    .filter((c) => !looksGenerated(c))
+    .slice(0, MAX_CSS_CLASSES);
 }
 
 // ---------------------------------------------------------------------------
 // Position counting – walks siblings rather than building arrays
 // ---------------------------------------------------------------------------
 
-/**
- * Counts the 1-based position of `node` among same-tag siblings and whether
- * any same-tag siblings exist at all.  Walking previousSibling / nextSibling
- * is more robust across DOM implementations than Array.indexOf.
- */
 function countSameTagPosition(node: any): {
   hasSiblings: boolean;
   index: number;
@@ -98,11 +129,11 @@ function countSameTagPosition(node: any): {
 }
 
 // ---------------------------------------------------------------------------
-// CSS helpers
+// CSS segment generation
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true when `candidate` matches the same tag and (at least) all the
+ * Checks whether `candidate` has the same tag name and at least all the
  * given classes.
  */
 function matchesTagAndClasses(
@@ -119,25 +150,23 @@ function matchesTagAndClasses(
  * Generates the shortest unambiguous CSS segment for a single element
  * relative to its parent.
  *
- *  Priority: #id → [data-testid] → tag.classes (if unique) → tag:nth-of-type
+ * Stability priority (most → least robust for scraping):
+ *   [data-testid] → tag.stableClasses (if unique) → #stableId → tag:nth-of-type
+ *
+ * Dynamic IDs and generated class names are filtered out so the LLM
+ * receives selectors that survive across page loads and content changes.
  */
 function getUniqueSegment(node: any): string {
   const tag = getTagName(node);
 
-  // 1. ID – globally unique
-  const id = getAttribute(node, 'id');
-  if (id && !isTurndownId(id)) {
-    return `#${cssEscape(id)}`;
-  }
-
-  // 2. data-testid – stable test hook
+  // 1. data-testid – explicitly stable, placed for testing / analytics
   const testId = getAttribute(node, 'data-testid');
   if (testId) {
     return `${tag}[data-testid="${testId}"]`;
   }
 
-  // 3. Try class combination – check if it uniquely identifies among siblings
-  const cls = getClasses(node).slice(0, MAX_CSS_CLASSES);
+  // 2. Unique stable class combination
+  const cls = getStableClasses(node);
   if (cls.length > 0) {
     const classSelector = `${tag}.${cls.map(cssEscape).join('.')}`;
     const parent = getParent(node);
@@ -150,10 +179,15 @@ function getUniqueSegment(node: any): string {
         return classSelector;
       }
     }
-    // Classes exist but are not unique – fall through and add nth-of-type
   }
 
-  // 4. Fallback – tag with :nth-of-type (only when same-tag siblings exist)
+  // 3. Stable ID – only if it looks human-written and reusable
+  const id = getAttribute(node, 'id');
+  if (id && !looksGenerated(id)) {
+    return `#${cssEscape(id)}`;
+  }
+
+  // 4. Fallback – tag ± stable classes ± :nth-of-type
   const { hasSiblings, index } = countSameTagPosition(node);
   const classPart =
     cls.length > 0 ? `.${cls.map(cssEscape).join('.')}` : '';
@@ -182,13 +216,11 @@ export function computeCSSSelector(el: any): string {
     const segment = getUniqueSegment(current);
     parts.unshift(segment);
 
-    // An id-based segment anchors the path – no need to go higher
-    if (segment.startsWith('#')) break;
-    // data-testid is similarly stable
-    if (segment.includes('[data-testid=')) break;
+    // Strong anchors stop traversal
+    if (segment.startsWith('#') || segment.includes('[data-testid=')) break;
 
     if (parts.length >= MAX_CSS_DEPTH) break;
-    if (getClasses(current).length > 0 && parts.length >= 2) break;
+    if (getStableClasses(current).length > 0 && parts.length >= 2) break;
 
     current = getParent(current);
   }
@@ -206,8 +238,9 @@ export function computeXPath(el: any): string {
     const tag = getTagName(current);
     if (isRootTag(tag)) break;
 
+    // Only use stable IDs as XPath shortcuts
     const id = getAttribute(current, 'id');
-    if (id && !isTurndownId(id)) {
+    if (id && !looksGenerated(id)) {
       parts.unshift(`${tag}[@id='${id}']`);
       return '//' + parts.join('/');
     }
