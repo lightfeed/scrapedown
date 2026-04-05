@@ -55,7 +55,7 @@
     "url": "https://github.com/lightfeed/scrapedown/issues"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "turndown": "^7.2.0"
