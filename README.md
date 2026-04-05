@@ -75,6 +75,7 @@ const features = [...document.querySelectorAll('div.product > ul.features > li')
 
 ```bash
 npx @lightfeed/scrapedown page.html
+curl -s https://example.com | npx @lightfeed/scrapedown
 ```
 
 **Global install:**
@@ -84,11 +85,17 @@ npm install -g @lightfeed/scrapedown
 scrapedown page.html
 ```
 
-**Pipe HTML from any source:**
+**Local development (before publishing):**
 
 ```bash
-curl -s https://example.com | npx @lightfeed/scrapedown
-cat page.html | npx @lightfeed/scrapedown
+# From the project directory
+npm run build
+npx . page.html
+curl -s https://example.com | npx .
+
+# Or link globally for the "scrapedown" command
+npm link
+scrapedown page.html
 ```
 
 ### CLI options
