@@ -2,9 +2,9 @@
 
 HTML to Markdown with CSS selector and XPath annotations — built for LLM-powered web scraping.
 
-[![CI](https://github.com/user/scrapedown/actions/workflows/ci.yml/badge.svg)](https://github.com/user/scrapedown/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/scrapedown)](https://www.npmjs.com/package/scrapedown)
-[![license](https://img.shields.io/npm/l/scrapedown)](./LICENSE)
+[![CI](https://github.com/lightfeed/scrapedown/actions/workflows/ci.yml/badge.svg)](https://github.com/lightfeed/scrapedown/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@lightfeed/scrapedown)](https://www.npmjs.com/package/@lightfeed/scrapedown)
+[![license](https://img.shields.io/npm/l/@lightfeed/scrapedown)](./LICENSE)
 
 ## Why?
 
@@ -20,13 +20,13 @@ With scrapedown:     HTML → Annotated Markdown → LLM → accurate scraper co
 ## Install
 
 ```bash
-npm install scrapedown
+npm install @lightfeed/scrapedown
 ```
 
 ## Quick start
 
 ```typescript
-import { scrapedown } from 'scrapedown';
+import { scrapedown } from '@lightfeed/scrapedown';
 
 const html = `
 <div class="product">
@@ -67,6 +67,34 @@ const features = [...document.querySelectorAll('div.product > ul.features > li')
   .map(li => li.textContent);
 ```
 
+## CLI
+
+```bash
+# Pipe HTML from stdin
+curl -s https://example.com | npx @lightfeed/scrapedown
+
+# Read from a file
+npx @lightfeed/scrapedown page.html
+
+# CSS selectors only, footnote style
+npx @lightfeed/scrapedown -s css -p footnote page.html
+```
+
+### CLI options
+
+```
+Usage
+  scrapedown [options] [file]
+  cat page.html | scrapedown [options]
+
+Options
+  -s, --selectors <type>   css, xpath, or both (default: both)
+  -p, --placement <mode>   inline or footnote (default: inline)
+  -e, --elements <list>    Comma-separated element types to annotate
+  -h, --help               Show this help
+  -v, --version            Show version number
+```
+
 ## API
 
 ### `scrapedown(html, options?)`
@@ -74,7 +102,7 @@ const features = [...document.querySelectorAll('div.product > ul.features > li')
 Convert HTML to annotated Markdown in one call.
 
 ```typescript
-import { scrapedown } from 'scrapedown';
+import { scrapedown } from '@lightfeed/scrapedown';
 const md = scrapedown('<h1>Hello</h1>');
 ```
 
@@ -83,7 +111,7 @@ const md = scrapedown('<h1>Hello</h1>');
 Create a reusable converter instance (avoids re-creating Turndown rules on every call).
 
 ```typescript
-import { Scrapedown } from 'scrapedown';
+import { Scrapedown } from '@lightfeed/scrapedown';
 
 const sd = new Scrapedown({ selectors: ['css'] });
 const md = sd.convert(html);
@@ -122,7 +150,7 @@ const md = sd.convert(html);
 The selector generators are also exported for direct use:
 
 ```typescript
-import { computeCSSSelector, computeXPath } from 'scrapedown';
+import { computeCSSSelector, computeXPath } from '@lightfeed/scrapedown';
 ```
 
 ## How selectors are generated
@@ -139,7 +167,7 @@ import { computeCSSSelector, computeXPath } from 'scrapedown';
 ## Contributing
 
 ```bash
-git clone https://github.com/user/scrapedown.git
+git clone https://github.com/lightfeed/scrapedown.git
 cd scrapedown
 npm install
 npm test            # run tests
