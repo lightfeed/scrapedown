@@ -40,6 +40,33 @@ function getVersion(): string {
   }
 }
 
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks).toString('utf-8');
+}
+
+async function readInput(): Promise<string> {
+  if (positionals.length > 0) {
+    try {
+      return readFileSync(positionals[0], 'utf-8');
+    } catch (err: unknown) {
+      console.error(`Error reading file: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  }
+  if (!process.stdin.isTTY) {
+    return readStdin();
+  }
+  console.error(
+    'No input provided. Pass a file path or pipe HTML to stdin.\n',
+  );
+  console.error('Run scrapedown --help for usage information.');
+  process.exit(1);
+}
+
 const { values, positionals } = parseArgs({
   options: {
     selectors: { type: 'string', short: 's', default: 'both' },
@@ -62,26 +89,7 @@ if (values.version) {
   process.exit(0);
 }
 
-function readInput(): string {
-  if (positionals.length > 0) {
-    try {
-      return readFileSync(positionals[0], 'utf-8');
-    } catch (err: unknown) {
-      console.error(`Error reading file: ${(err as Error).message}`);
-      process.exit(1);
-    }
-  }
-  if (!process.stdin.isTTY) {
-    return readFileSync(0, 'utf-8');
-  }
-  console.error(
-    'No input provided. Pass a file path or pipe HTML to stdin.\n',
-  );
-  console.error('Run scrapedown --help for usage information.');
-  process.exit(1);
-}
-
-const html = readInput();
+const html = await readInput();
 
 const opts: ScrapedownOptions = {};
 

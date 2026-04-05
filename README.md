@@ -69,15 +69,26 @@ const features = [...document.querySelectorAll('div.product > ul.features > li')
 
 ## CLI
 
+### Running the CLI
+
+**Via npx (no install needed):**
+
 ```bash
-# Pipe HTML from stdin
-curl -s https://example.com | npx @lightfeed/scrapedown
-
-# Read from a file
 npx @lightfeed/scrapedown page.html
+```
 
-# CSS selectors only, footnote style
-npx @lightfeed/scrapedown -s css -p footnote page.html
+**Global install:**
+
+```bash
+npm install -g @lightfeed/scrapedown
+scrapedown page.html
+```
+
+**Pipe HTML from any source:**
+
+```bash
+curl -s https://example.com | npx @lightfeed/scrapedown
+cat page.html | npx @lightfeed/scrapedown
 ```
 
 ### CLI options
@@ -93,6 +104,41 @@ Options
   -e, --elements <list>    Comma-separated element types to annotate
   -h, --help               Show this help
   -v, --version            Show version number
+```
+
+### Real-world example: Hacker News
+
+```bash
+curl -s https://news.ycombinator.com | npx @lightfeed/scrapedown -s css
+```
+
+Output (trimmed):
+
+```
+1.
+
+[Introduction to Computer Music (2009) [pdf]](https://composerprogrammer.com/introductiontocomputermusic.pdf)
+<!-- css="span.titleline > a" -->
+([composerprogrammer.com](from?site=composerprogrammer.com)<!-- css="span.sitebit.comhead > a" -->)
+
+107 points by [luu](user?id=luu)<!-- css="span.subline > a.hnuser" -->
+[4 hours ago](item?id=47645432)<!-- css="span.age > a" -->
+| [26 comments](item?id=47645432)<!-- css="span.subline > a:nth-of-type(3)" -->
+
+2.
+
+[Show HN: A game where you build a GPU](https://jaso1024.com/mvidia/)
+<!-- css="span.titleline > a" -->
+...
+```
+
+An LLM reading this can immediately produce a working scraper:
+
+```javascript
+// Selectors learned from scrapedown output
+const stories = document.querySelectorAll('span.titleline > a');
+const scores = document.querySelectorAll('span.subline > span.score');
+const commentLinks = document.querySelectorAll('span.subline > a:last-of-type');
 ```
 
 ## API
