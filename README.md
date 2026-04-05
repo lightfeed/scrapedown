@@ -201,6 +201,36 @@ const md = sd.convert(html);
 [^s1]: css: `h1.title` | xpath: `//h1`
 ```
 
+### Custom Turndown rules
+
+The underlying `TurndownService` instance is exposed via `sd.service`, so you can add custom rules, remove elements, or use Turndown plugins:
+
+```typescript
+import { Scrapedown } from '@lightfeed/scrapedown';
+
+const sd = new Scrapedown();
+
+// Remove scripts, styles, and other irrelevant elements
+sd.service.addRule('remove-irrelevant', {
+  filter: ['script', 'style', 'noscript', 'meta', 'link', 'textarea'],
+  replacement: () => '',
+});
+
+// Strip SVGs
+sd.service.addRule('remove-svg', {
+  filter: 'svg',
+  replacement: () => '',
+});
+
+// Promote <title> to an h1
+sd.service.addRule('title-as-h1', {
+  filter: ['title'],
+  replacement: (innerText) => `${innerText}\n===============\n`,
+});
+
+const md = sd.convert(html);
+```
+
 ### Exported utilities
 
 The selector generators are also exported for direct use:

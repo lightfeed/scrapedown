@@ -289,3 +289,44 @@ describe('Complex HTML', () => {
     expect(md).toContain('[^s1]:');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Custom Turndown rules via service getter
+// ---------------------------------------------------------------------------
+
+describe('Scrapedown – custom Turndown rules', () => {
+  it('allows removing elements via addRule', () => {
+    const sd = inline();
+    sd.service.addRule('remove-scripts', {
+      filter: ['script', 'style'] as any,
+      replacement: () => '',
+    });
+    const md = sd.convert(
+      '<div><h1>Title</h1><script>alert(1)</script><style>.x{}</style></div>',
+    );
+    expect(md).toContain('# Title');
+    expect(md).not.toContain('alert');
+    expect(md).not.toContain('.x{}');
+  });
+
+  it('allows overriding link conversion', () => {
+    const sd = inline({ elements: [] });
+    sd.service.addRule('custom-link', {
+      filter: ((node: any) =>
+        node.nodeName === 'A' && !!node.getAttribute('href')) as any,
+      replacement: (_content: string, node: any) => {
+        const href = node.getAttribute('href') || '';
+        const text = (node as any).textContent || '';
+        return `LINK[${text}](${href})`;
+      },
+    });
+    const md = sd.convert('<a href="/page">Click</a>');
+    expect(md).toContain('LINK[Click](/page)');
+  });
+
+  it('exposes the service for plugin use', () => {
+    const sd = new Scrapedown();
+    expect(sd.service).toBeDefined();
+    expect(typeof sd.service.addRule).toBe('function');
+  });
+});

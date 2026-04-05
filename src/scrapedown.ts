@@ -26,7 +26,7 @@ interface ResolvedOptions {
 }
 
 export class Scrapedown {
-  private service: TurndownService;
+  private _service: TurndownService;
   private opts: ResolvedOptions;
   private footnotes: SelectorResult[] = [];
 
@@ -38,7 +38,7 @@ export class Scrapedown {
       turndown: options.turndown ?? {},
     };
 
-    this.service = new TurndownService({
+    this._service = new TurndownService({
       headingStyle: 'atx',
       bulletListMarker: '-',
       codeBlockStyle: 'fenced',
@@ -48,9 +48,14 @@ export class Scrapedown {
     this.installRules();
   }
 
+  /** The underlying TurndownService instance — use to add custom rules, plugins, etc. */
+  get service(): TurndownService {
+    return this._service;
+  }
+
   convert(html: string): string {
     this.footnotes = [];
-    let md = this.service.turndown(html);
+    let md = this._service.turndown(html);
 
     if (this.opts.annotationPlacement === 'footnote' && this.footnotes.length > 0) {
       md += '\n\n---\n\n';
@@ -119,7 +124,7 @@ export class Scrapedown {
   // ---------------------------------------------------------------------------
 
   private addHeadingRule(): void {
-    this.service.addRule('sd-heading', {
+    this._service.addRule('sd-heading', {
       filter: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as any,
       replacement: (content, node, _options) => {
         const level = Number(node.nodeName.charAt(1));
@@ -138,7 +143,7 @@ export class Scrapedown {
   }
 
   private addParagraphRule(): void {
-    this.service.addRule('sd-paragraph', {
+    this._service.addRule('sd-paragraph', {
       filter: 'p' as any,
       replacement: (content, node) => {
         const text = content.trim();
@@ -155,7 +160,7 @@ export class Scrapedown {
   }
 
   private addLinkRule(): void {
-    this.service.addRule('sd-link', {
+    this._service.addRule('sd-link', {
       filter: ((node: any) =>
         node.nodeName === 'A' &&
         !!node.getAttribute('href')) as any,
@@ -170,7 +175,7 @@ export class Scrapedown {
   }
 
   private addImageRule(): void {
-    this.service.addRule('sd-image', {
+    this._service.addRule('sd-image', {
       filter: 'img' as any,
       replacement: (_content, node) => {
         const alt = (node.getAttribute('alt') || '').replace(/\n/g, ' ');
@@ -190,7 +195,7 @@ export class Scrapedown {
   }
 
   private addListRule(): void {
-    this.service.addRule('sd-list', {
+    this._service.addRule('sd-list', {
       filter: ['ul', 'ol'] as any,
       replacement: (content, node) => {
         const parent = node.parentNode;
@@ -211,7 +216,7 @@ export class Scrapedown {
   }
 
   private addListItemRule(): void {
-    this.service.addRule('sd-listItem', {
+    this._service.addRule('sd-listItem', {
       filter: 'li' as any,
       replacement: (content, node, options) => {
         let text = content
@@ -245,7 +250,7 @@ export class Scrapedown {
   }
 
   private addBlockquoteRule(): void {
-    this.service.addRule('sd-blockquote', {
+    this._service.addRule('sd-blockquote', {
       filter: 'blockquote' as any,
       replacement: (content, node) => {
         let text = content.replace(/^\n+|\n+$/g, '');
@@ -257,7 +262,7 @@ export class Scrapedown {
   }
 
   private addCodeBlockRule(): void {
-    this.service.addRule('sd-codeBlock', {
+    this._service.addRule('sd-codeBlock', {
       filter: ((node: any) =>
         node.nodeName === 'PRE' &&
         node.firstChild &&
