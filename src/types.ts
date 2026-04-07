@@ -12,7 +12,8 @@ export type AnnotatableElement =
   | 'list'
   | 'listItem'
   | 'blockquote'
-  | 'codeBlock';
+  | 'codeBlock'
+  | 'textBlock';
 
 export interface ScrapedownOptions {
   /** How annotations appear: 'inline' (HTML comments) or 'footnote' (references at bottom). Default: 'inline' */

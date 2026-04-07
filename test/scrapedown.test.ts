@@ -191,6 +191,54 @@ describe('Scrapedown – element options', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Text block (div) annotation
+// ---------------------------------------------------------------------------
+
+describe('Scrapedown – textBlock annotations', () => {
+  it('annotates leaf divs with text content (inline)', () => {
+    const sd = inline();
+    const md = sd.convert('<div class="price">$129.99</div>');
+    expect(md).toContain('$129.99');
+    expect(md).toMatch(/css="div\.price"/);
+  });
+
+  it('annotates leaf divs with text content (footnote)', () => {
+    const sd = footnote();
+    const md = sd.convert('<div class="price">$129.99</div>');
+    expect(md).toContain('$129.99');
+    expect(md).toContain('[^s1]');
+    expect(md).toContain('[^s1]:');
+  });
+
+  it('does not annotate structural divs that contain block children', () => {
+    const sd = inline();
+    const md = sd.convert(
+      '<div class="wrapper"><div class="price">$10</div></div>',
+    );
+    expect(md).toMatch(/div\.price/);
+    const annotations = [...md.matchAll(/<!-- css="([^"]*?)"/g)];
+    expect(annotations).toHaveLength(1);
+    expect(annotations[0][1]).toContain('div.price');
+  });
+
+  it('annotates divs with inline elements like span/strong', () => {
+    const sd = inline();
+    const md = sd.convert(
+      '<div class="rating"><strong>★★★★☆</strong> (4.2/5)</div>',
+    );
+    expect(md).toContain('★★★★☆');
+    expect(md).toContain('(4.2/5)');
+    expect(md).toMatch(/css="div\.rating"/);
+  });
+
+  it('skips empty divs', () => {
+    const sd = inline();
+    const md = sd.convert('<div class="empty">   </div>');
+    expect(md).not.toContain('css="div.empty"');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // CSS selector generation (integration)
 // ---------------------------------------------------------------------------
 

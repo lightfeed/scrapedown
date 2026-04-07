@@ -16,6 +16,7 @@ const DEFAULT_ELEMENTS: AnnotatableElement[] = [
   'list',
   'blockquote',
   'codeBlock',
+  'textBlock',
 ];
 
 interface ResolvedOptions {
@@ -117,6 +118,7 @@ export class Scrapedown {
     if (this.has('listItem')) this.addListItemRule();
     if (this.has('blockquote')) this.addBlockquoteRule();
     if (this.has('codeBlock')) this.addCodeBlockRule();
+    if (this.has('textBlock')) this.addTextBlockRule();
   }
 
   // ---------------------------------------------------------------------------
@@ -257,6 +259,41 @@ export class Scrapedown {
         text = text.replace(/^/gm, '> ');
         const ann = this.annotate(node, true);
         return `\n\n${text}\n${ann}\n\n`;
+      },
+    });
+  }
+
+  private static BLOCK_TAGS = new Set([
+    'address', 'article', 'aside', 'blockquote', 'details', 'dialog',
+    'dd', 'div', 'dl', 'dt', 'fieldset', 'figcaption', 'figure',
+    'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header',
+    'hgroup', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section',
+    'table', 'ul',
+  ]);
+
+  private addTextBlockRule(): void {
+    this._service.addRule('sd-textBlock', {
+      filter: ((node: any) => {
+        if (node.nodeName !== 'DIV') return false;
+        const children = Array.from(
+          (node.childNodes || []) as ArrayLike<any>,
+        );
+        return !children.some(
+          (child: any) =>
+            child.nodeType === 1 &&
+            Scrapedown.BLOCK_TAGS.has(child.nodeName.toLowerCase()),
+        );
+      }) as any,
+      replacement: (content, node) => {
+        const text = content.trim();
+        if (!text) return '';
+
+        const ann = this.annotate(node);
+
+        if (this.opts.annotationPlacement === 'inline') {
+          return `\n\n${text}\n${ann}\n\n`;
+        }
+        return `\n\n${text}${ann}\n\n`;
       },
     });
   }
