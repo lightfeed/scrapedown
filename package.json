@@ -1,6 +1,6 @@
 {
   "name": "@lightfeed/scrapedown",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "HTML to Markdown with CSS selector and XPath annotations for LLM-powered web scraping",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
